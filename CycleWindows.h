@@ -1,0 +1,93 @@
+#ifndef PK_H
+#define PK_H
+
+
+#include <X11/Xlib.h>
+#include <X11/extensions/XInput2.h>
+#include <xdo.h>
+#include <X11/keysym.h>
+
+#define LEN(X) (sizeof X / sizeof X[0])
+#define NUMBER_OF_MASTER_DEVICES 32
+#define NUMBER_OF_WINDOWS 8
+
+Display *dpy = NULL;
+xdo_t *xdo;
+Window root;
+int CYCLE_WINDOWS_END_KEY=XK_Alt_L;
+Window queryWindow;
+
+int numberOfActiveMasters=0;
+
+int CYCLE_WINDOWS_END_KEYCODE;
+
+
+typedef struct {
+	double x, y;
+} Tuple;
+
+
+typedef struct {
+	int mod;
+	KeySym keySym;
+	void (*pressfunc)(const int );
+	const int pressarg;
+	void (*releasefunc)(const int );
+	const int releasearg;
+
+	KeyCode keyCode;
+	long timeLastRecorded[8];
+} Key;
+
+typedef struct {
+	Window windowOrder[NUMBER_OF_WINDOWS];
+	Bool cycling;
+	int offset;
+	int numberOfWindows;
+	Bool dirty;
+} MasterWindows;
+
+typedef struct {
+	int ismove2scroll;
+	Tuple scrollRem,mouseRem;
+	Tuple delta;
+	int scrollDir,mouseDir;
+	double coefficent;
+	int moveOption;
+	int id;
+	long timeLastRecorded;
+	MasterWindows windows;
+} Master;
+
+
+
+
+void reset();
+void clear();
+void setup();
+void addMaster(int keyboardMasterId);
+void removeMaster(int keyboardMasterId);
+int getMasterIndex(int keyboardMasterId);
+void initCurrentMasters();
+void listenForHiearchyChange();
+void listenForKeys();
+int getMasterPointerId(XIDeviceEvent *devev,Bool mouseEvent);
+int keypress(Master *master, int keyCode,int mods,Bool press);
+void grabKey(int deviceID,int keyCode,int mod,Bool grab);
+void detectEvent();
+void cleanup();
+int saveerror(Display *dpy, XErrorEvent *ee);
+void msleep(long ms);
+void update();
+Window getNextWindowToFocus();
+void cycleWindows(Master *master,int offset);
+void endCycleWindows(Master *master);
+void removeWindow();
+Bool addWindow(Master *master,Window id);
+void dump();
+void updateFocus();
+Key startCycle={Mod1Mask,XK_Tab};
+Key startReverseCycle={Mod1Mask | ShiftMask,XK_Tab};
+
+Master masters[NUMBER_OF_MASTER_DEVICES];
+#endif
