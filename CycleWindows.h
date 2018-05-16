@@ -10,6 +10,7 @@
 #define LEN(X) (sizeof X / sizeof X[0])
 #define NUMBER_OF_MASTER_DEVICES 32
 #define NUMBER_OF_WINDOWS 8
+#define NONFOCUSED_WINDOW_COLOR 0xdddddd
 
 Display *dpy = NULL;
 xdo_t *xdo;
@@ -23,8 +24,8 @@ int CYCLE_WINDOWS_END_KEYCODE;
 
 
 typedef struct {
-	double x, y;
-} Tuple;
+	short r, g,b;
+} Color;
 
 
 typedef struct {
@@ -48,14 +49,7 @@ typedef struct {
 } MasterWindows;
 
 typedef struct {
-	int ismove2scroll;
-	Tuple scrollRem,mouseRem;
-	Tuple delta;
-	int scrollDir,mouseDir;
-	double coefficent;
-	int moveOption;
 	int id;
-	long timeLastRecorded;
 	MasterWindows windows;
 } Master;
 
@@ -90,4 +84,10 @@ Key startCycle={Mod1Mask,XK_Tab};
 Key startReverseCycle={Mod1Mask | ShiftMask,XK_Tab};
 
 Master masters[NUMBER_OF_MASTER_DEVICES];
+
+unsigned long masterColors[]={
+		0x00FF00,0x0000FF,0xFF0000,0x00FFFF,0xFFFFFF,0x000000
+};
+
+
 #endif

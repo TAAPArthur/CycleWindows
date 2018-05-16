@@ -16,6 +16,7 @@
 #include <assert.h>
 
 
+
 static int handleError(Display *dpy, XErrorEvent *event){
 	if(event->error_code==BadWindow)
 		removeWindow();
@@ -334,15 +335,26 @@ int keypress(Master *master,int keyCode,int mods,Bool press){
 }
  */
 void update(){
+	Window unfocusedWindows[numberOfActiveMasters];
+	int numberOfUnfocusedWindows=0;
 	for(int i=0;i<numberOfActiveMasters;i++)
 		if(!masters[i].windows.cycling){
 			Window focusedWindow;
 			XIGetFocus(dpy, masters[i].id, &focusedWindow);
 
 			//non defaults masters will return small number when no focus is set
-			if(focusedWindow>10000 && addWindow(&masters[i],focusedWindow))
-				printf("new window detected: %ld \n",focusedWindow);
+			if(focusedWindow>10000 && addWindow(&masters,focusedWindow)){
+				if(masters[i].windows.windowOrder[1]!=0)
+					unfocusedWindows[numberOfUnfocusedWindows++]=masters[i].windows.windowOrder[1];
+
+				XSetWindowBorder(dpy,focusedWindow,masterColors[i%LEN(masterColors)]);
+			}
 		}
+	for(int i=0;i<numberOfUnfocusedWindows;i++){
+		queryWindow=unfocusedWindows[i];
+		XSetWindowBorder(dpy,queryWindow,NONFOCUSED_WINDOW_COLOR);
+		sync();
+	}
 }
 
 Window getNextWindowToFocus(Master *master, int delta){
@@ -361,7 +373,7 @@ int getClientKeyboard(){
 	return getAssociatedMasterDevice(masterPointer);
 }
 void cycleWindows(Master *master, int delta){
-	dump(master);
+
 	master->windows.cycling=True;
 	Window nextWindow=getNextWindowToFocus(master,delta);
 	printf("activate %ld %ld\n",nextWindow,getNextWindowToFocus(master,0));
@@ -407,10 +419,7 @@ void cycleWindows(Master *master, int delta){
 
 	Window focusedWindow;
 	XIGetFocus(dpy, master->id, &focusedWindow);
-	printf("%ld=? %ld",focusedWindow,nextWindow);
 	assert(focusedWindow==nextWindow);
-	dump(master);
-	printf("cycle compleded\n");
 
 
 
@@ -422,11 +431,10 @@ void endCycleWindows(Master *master){
 	if(!master->windows.cycling)
 		return;
 	printf("release %d %ld; resetting \n",master->id,master->windows.windowOrder[master->windows.offset]);
-	dump(master);
+
 	addWindow(master,master->windows.windowOrder[master->windows.offset]);
 	master->windows.offset=0;
 	master->windows.cycling=False;
-	printf("released");
 	//grabKey(master->id, CYCLE_WINDOWS_END_KEYCODE, XIAnyModifier,False);
 
 }
@@ -439,8 +447,6 @@ Bool addWindow(Master *master,Window id){
 		return False;
 	assert(id!=0);
 
-	dump(master);
-	printf("updating %ld",id);
 	for(int i=0; i<NUMBER_OF_WINDOWS; i++){
 		Window temp=master->windows.windowOrder[i];
 		master->windows.windowOrder[i]=windowToInsert;
@@ -455,14 +461,10 @@ Bool addWindow(Master *master,Window id){
 	}
 
 
-	if(updated){
-		//dump(master);
-	}
 	return updated;
 
 }
 void dump(Master *master){
-	printf("window order (%d): ",master->id);
 	for(int i=0; i<NUMBER_OF_WINDOWS&&master->windows.windowOrder[i]!=0; i++)
 		printf("%ld ",master->windows.windowOrder[i]);
 	printf("\n");
