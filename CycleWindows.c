@@ -340,8 +340,6 @@ int keypress(Master *master,int keyCode,int mods,Bool press){
 }
  */
 void update(){
-	Window unfocusedWindows[numberOfActiveMasters];
-	int numberOfUnfocusedWindows=0;
 	for(int i=0;i<numberOfActiveMasters;i++)
 		if(!masters[i].windows.cycling){
 			Window focusedWindow;
@@ -350,13 +348,11 @@ void update(){
 			//non defaults masters will return small number when no focus is set
 			if(focusedWindow>10000 && addWindow(&masters[i],focusedWindow)){
 				if(masters[i].windows.windowOrder[1]!=0)
-					unfocusedWindows[numberOfUnfocusedWindows++]=masters[i].windows.windowOrder[1];
+    				resetBorder(masters[i].windows.windowOrder[1]);
 				setBorder(i,focusedWindow);
 
 			}
 		}
-	for(int n=0;n<numberOfUnfocusedWindows;n++)
-    	resetBorder(unfocusedWindows[n]);
 }
 void setBorder(int index,Window wid){
 	XSetWindowBorder(dpy,wid,masterColors[index%LEN(masterColors)]);
@@ -364,7 +360,7 @@ void setBorder(int index,Window wid){
 void resetBorder(Window wid){
 	queryWindow=wid;
 	for(int i=0;i<numberOfActiveMasters;i++)
-		if(masters[i].windows.windowOrder[0]==queryWindow){
+		if(masters[i].windows.windowOrder[masters[i].windows.offset]==queryWindow){
 			XSetWindowBorder(dpy,queryWindow,masterColors[i%LEN(masterColors)]);
 			goto END_LOOP;
 		}
