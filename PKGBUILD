@@ -14,16 +14,11 @@ md5sums=('SKIP')
 
 source=("git://github.com/TAAPArthur/CycleWindows.git")
 _srcDir="CycleWindows"
-build(){
-    cd "$_srcDir"
-    make
-}
+
 package() {
 
   cd "$_srcDir"
   mkdir -p "$pkgdir/usr/bin/"
   mkdir -p "$pkgdir/usr/lib/$pkgname/"
-  pwd
-
   install -D -m 0755 "cycle-windows" "$pkgdir/usr/bin/"
 }
