@@ -23,21 +23,13 @@ int numberOfActiveMasters=0;
 int CYCLE_WINDOWS_END_KEYCODE;
 
 
-typedef struct {
-	short r, g,b;
-} Color;
 
 
 typedef struct {
 	int mod;
 	KeySym keySym;
-	void (*pressfunc)(const int );
-	const int pressarg;
-	void (*releasefunc)(const int );
-	const int releasearg;
 
 	KeyCode keyCode;
-	long timeLastRecorded[8];
 } Key;
 
 typedef struct {
@@ -81,8 +73,8 @@ void removeWindow();
 Bool addWindow(Master *master,Window id);
 void dump();
 void updateFocus();
-Key startCycle={Mod1Mask,XK_Tab};
-Key startReverseCycle={Mod1Mask | ShiftMask,XK_Tab};
+Key startCycle={Mod1Mask,XK_Tab,-1};
+Key startReverseCycle={Mod1Mask | ShiftMask,XK_Tab,-1};
 
 Master masters[NUMBER_OF_MASTER_DEVICES];
 

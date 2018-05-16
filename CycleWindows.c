@@ -346,17 +346,25 @@ void update(){
 			XIGetFocus(dpy, masters[i].id, &focusedWindow);
 
 			//non defaults masters will return small number when no focus is set
-			if(focusedWindow>10000 && addWindow(&masters,focusedWindow)){
+			if(focusedWindow>10000 && addWindow(&masters[i],focusedWindow)){
 				if(masters[i].windows.windowOrder[1]!=0)
 					unfocusedWindows[numberOfUnfocusedWindows++]=masters[i].windows.windowOrder[1];
 
 				XSetWindowBorder(dpy,focusedWindow,masterColors[i%LEN(masterColors)]);
 			}
 		}
-	for(int i=0;i<numberOfUnfocusedWindows;i++){
-		queryWindow=unfocusedWindows[i];
+	for(int n=0;n<numberOfUnfocusedWindows;n++){
+    	queryWindow=unfocusedWindows[n];
+    	for(int i=0;i<numberOfActiveMasters;i++)
+    	    if(masters[i].windows.windowOrder[0]==unfocusedWindows[n]){
+	            XSetWindowBorder(dpy,queryWindow,masterColors[i%LEN(masterColors)]);
+	            goto END_LOOP;
+            }
+		queryWindow=unfocusedWindows[n];
 		XSetWindowBorder(dpy,queryWindow,NONFOCUSED_WINDOW_COLOR);
-		sync();
+		END_LOOP:
+		    sync();
+		
 	}
 }
 
