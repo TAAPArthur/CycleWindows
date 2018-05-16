@@ -55,6 +55,8 @@ void setup();
 void addMaster(int keyboardMasterId);
 void removeMaster(int keyboardMasterId);
 int getMasterIndex(int keyboardMasterId);
+void setBorder(int index,Window wid);
+void resetBorder(Window wid);
 void initCurrentMasters();
 void listenForHiearchyChange();
 void listenForKeys();
