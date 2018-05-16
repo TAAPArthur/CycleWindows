@@ -2,7 +2,7 @@
 
 
 pkgname='cycle-windows'
-pkgver='0.4.0'
+pkgver='0.4.1'
 _language='en-US'
 pkgrel=1
 pkgdesc='Control mouse from keyboard'
