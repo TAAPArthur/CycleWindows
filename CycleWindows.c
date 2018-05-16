@@ -256,14 +256,17 @@ void removeMaster(int keyboardMasterId){
 	int index=getMasterIndex(keyboardMasterId);
 	if(index==-1)
 		return;
-	for(;index<numberOfActiveMasters;index++)
+	for(;index<numberOfActiveMasters;index++){
 		masters[index-1]=masters[index];
+		masters[index-1].index=index-1;
+	}
 	numberOfActiveMasters--;
 }
 void addMaster(int keyboardMasterId){
 	if(getMasterIndex(keyboardMasterId)>-1)
 		return;
 	masters[numberOfActiveMasters].id=keyboardMasterId;
+	masters[numberOfActiveMasters]=numberOfActiveMasters;
 	for(int i=0;i<NUMBER_OF_WINDOWS;i++)
 		masters[numberOfActiveMasters].windows.windowOrder[i]=0;
 	numberOfActiveMasters++;

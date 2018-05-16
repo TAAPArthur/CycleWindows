@@ -50,6 +50,7 @@ typedef struct {
 
 typedef struct {
 	int id;
+	int index;
 	MasterWindows windows;
 } Master;
 
