@@ -291,7 +291,7 @@ void detectEvent(){
 	XGenericEventCookie *cookie = &event.xcookie;
 	if(XGetEventData(dpy, cookie)){
 		if (event.xcookie.type== XI_HierarchyChanged){
-			//onHiearchyChange( (*XIHierarchyEvent) &event);
+			onHiearchyChange(event.xcookie.data);
 		}
 		else{
 			devev = cookie->data;
