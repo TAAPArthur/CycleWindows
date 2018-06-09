@@ -71,7 +71,7 @@ void update();
 Window getNextWindowToFocus();
 void cycleWindows(Master *master,int offset);
 void endCycleWindows(Master *master);
-void removeWindow();
+void removeWindow(Window winToRemove);
 Bool addWindow(Master *master,Window id);
 void dump();
 void updateFocus();

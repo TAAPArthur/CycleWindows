@@ -18,24 +18,26 @@
 
 
 static int handleError(Display *dpy, XErrorEvent *event){
-	if(event->error_code==BadWindow)
-		removeWindow();
-	else{
+	if(event->error_code==BadWindow){
+		removeWindow(queryWindow);
+		queryWindow=0;
+	}
+	//else{
 		char buff[100];
 		XGetErrorText(dpy,event->error_code,buff,40);
 
 		printf("Ignoring Xlib error: error code %d request code %d %s\n",
 				   event->error_code,
 				   event->request_code,buff) ;
-	}
+	//}
 	return 0;
 }
-void removeWindow(){
-	printf("removing window %ld",queryWindow);
+void removeWindow(Window winToRemove){
+	printf("removing window %ld",winToRemove);
 	for(int i=0;i<numberOfActiveMasters;i++){
 		int index=0;
 		for(;index<masters[i].windows.numberOfWindows;index++)
-			if(masters[i].windows.windowOrder[i]==queryWindow)
+			if(masters[i].windows.windowOrder[i]==winToRemove)
 				break;
 		if(index==masters[i].windows.numberOfWindows)
 			continue;
@@ -43,9 +45,8 @@ void removeWindow(){
 		for(;index<numberOfActiveMasters;index++)
 			masters[i].windows.windowOrder[i]=masters[i].windows.windowOrder[i+1];
 		masters[i].windows.windowOrder[index]=0;
-
 	}
-	queryWindow=0;
+
 }
 
 void msleep(long ms){
@@ -174,6 +175,23 @@ void test_adding(){
 	}
 
 }
+void test_removing(){
+	reset();
+	int masterID=1;
+	addMaster(masterID);
+	int index=getMasterIndex(masterID);
+	Window wins[]={1,2,3,4};
+	int numWin=4;
+	int mul=10000;
+	for(int i=0;i<numWin;i++){
+		addWindow(&masters[index], wins[i]*mul);
+		assert(masters[index].windows.numberOfWindows==i);
+	}
+	for(int i=0;i<numWin;i++){
+		removeWindow(wins[numWin-i]*mul);
+		assert(masters[index].windows.numberOfWindows==numWin-i-1);
+	}
+}
 void test_cycling(){
 	reset();
 	int masterID=1;
@@ -219,6 +237,7 @@ void reset(){
 	for(int i=0;i<numberOfActiveMasters;i++){
 		masters[i].windows.cycling=False;
 		masters[i].windows.numberOfWindows=0;
+		masters[i].windows.offset=0;
 	}
 	numberOfActiveMasters=0;
 }
@@ -232,17 +251,21 @@ int main(){
 	//return 0;
 	init();
 	printf("starting");
+	int count=0;
+	update();
 	while (True){
 		//workingMaster=None;
 		if(XPending(dpy)){
 			detectEvent();
+			XFlush(dpy);
+
 		}
-		XFlush(dpy);
-		update();
-
-		fflush(stdout);
+		if(++count%25==0){
+			update();
+			count=0;
+		}
 		msleep(10);
-
+		fflush(stdout);
 	}
 	printf("exit");
 
@@ -289,9 +312,16 @@ void detectEvent(){
 	while(XPending(dpy))
 		XNextEvent(dpy,&event);
 	XGenericEventCookie *cookie = &event.xcookie;
+	//printf("EVENT TYPE %d\n", cookie->evtype);
 	if(XGetEventData(dpy, cookie)){
 		if (event.xcookie.type== XI_HierarchyChanged){
 			onHiearchyChange(event.xcookie.data);
+		}
+		else if(event.xcookie.type == XI_Enter){
+			printf("enter");
+		}
+		else if(event.xcookie.type == XI_FocusIn){
+			printf("focus in");
 		}
 		else{
 			devev = cookie->data;
@@ -346,7 +376,9 @@ void update(){
 			XIGetFocus(dpy, masters[i].id, &focusedWindow);
 
 			//non defaults masters will return small number when no focus is set
+
 			if(focusedWindow>10000 && addWindow(&masters[i],focusedWindow)){
+				printf("new window %ld",focusedWindow);
 				if(masters[i].windows.windowOrder[1]!=0)
     				resetBorder(masters[i].windows.windowOrder[1]);
 				setBorder(i,focusedWindow);
@@ -358,15 +390,15 @@ void setBorder(int index,Window wid){
 	XSetWindowBorder(dpy,wid,masterColors[index%LEN(masterColors)]);
 }
 void resetBorder(Window wid){
+	if(wid==0)
+		return;
 	queryWindow=wid;
 	for(int i=0;i<numberOfActiveMasters;i++)
 		if(masters[i].windows.windowOrder[masters[i].windows.offset]==queryWindow){
 			XSetWindowBorder(dpy,queryWindow,masterColors[i%LEN(masterColors)]);
-			goto END_LOOP;
+			return;
 		}
 	XSetWindowBorder(dpy,queryWindow,NONFOCUSED_WINDOW_COLOR);
-	END_LOOP:
-		sync();
 }
 
 Window getNextWindowToFocus(Master *master, int delta){
@@ -387,66 +419,71 @@ int getClientKeyboard(){
 void cycleWindows(Master *master, int delta){
 	master->windows.cycling=True;
 	if(master->windows.numberOfWindows<2){
-		printf("not enought windows");
+		printf("not enough windows");
 		return;
 	}
 	Window currentWindow=master->windows.windowOrder[master->windows.offset];
-	Window nextWindow=getNextWindowToFocus(master,delta);
+	assert(currentWindow!=0);
+	while(1){
+		Window nextWindow=getNextWindowToFocus(master,delta);
 
-	assert(nextWindow!=0);
+		assert(nextWindow!=0);
 
-	master->windows.offset=(master->windows.offset+delta)%master->windows.numberOfWindows;
+		master->windows.offset=(master->windows.offset+delta)%master->windows.numberOfWindows;
 
-	queryWindow=nextWindow;
+		queryWindow=nextWindow;
 
-	int clientKeyboard=getClientKeyboard();
-	Window defaultMasterFocus=0;
-	if(clientKeyboard!=master->id)
-		XIGetFocus(dpy, clientKeyboard, &defaultMasterFocus);
+		int clientKeyboard=getClientKeyboard();
+		Window defaultMasterFocus=0;
+		if(clientKeyboard!=master->id)
+			XIGetFocus(dpy, clientKeyboard, &defaultMasterFocus);
 
-	//Check if window still exists
-	//XGetWindowAttributes will segfault if window is not present, so we manually
-	//call it and check
-	XWindowAttributes wattr;
-	XGetWindowAttributes(xdo->xdpy, nextWindow, &wattr);
-	sync();
-	if(queryWindow==0){//if window doesn't exist try again for the next window
-		cycleWindows(master, delta/abs(delta));
-		return;
+		//Check if window still exists
+		//XGetWindowAttributes will segfault if window is not present, so we manually
+		//call it and check
+		XWindowAttributes wattr;
+		XGetWindowAttributes(xdo->xdpy, nextWindow, &wattr);
+		XSync(dpy,False);
+		if(queryWindow==0){//if window doesn't exist try again for the next window
+			printf("window did not exist; trying again");
+			delta=delta/abs(delta);
+			continue;
+		}
+		printf("current window %ld; new window %ld",currentWindow,nextWindow);
+		resetBorder(currentWindow);
+		assert(0==xdo_activate_window(xdo,nextWindow));
+
+
+		//if(newDesktop!=currentDesktop)
+
+		XSync(dpy,False);
+		if(clientKeyboard!=master->id){
+			printf("adjusing default client\n");
+			XISetFocus(dpy, clientKeyboard, defaultMasterFocus, 0);
+		}
+
+		XSync(dpy,False);
+		printf("setting focus to %ld\n",nextWindow);
+		XISetFocus(dpy, master->id, nextWindow, 0);
+		setBorder(master->index, nextWindow);
+		XFlush(dpy);
+
+		Window focusedWindow;
+		XIGetFocus(dpy, master->id, &focusedWindow);
+		//assert(focusedWindow==nextWindow);
+
+
+		//XIGrabDevice(dpy, master->id, root, 0, None, GrabModeSync, GrabModeSync, True, &eventmask);
+		//printf("grabbing key %d",master->id);
+		//grabKey(master->id, CYCLE_WINDOWS_END_KEYCODE, XIAnyModifier,True);
+		break;
 	}
-	resetBorder(currentWindow);
-	assert(0==xdo_activate_window(xdo,nextWindow));
-	assert(0==xdo_activate_window(xdo,nextWindow));
-	//printf("%ld",queryWindow);
-	sync();
-	//if(newDesktop!=currentDesktop)
-
-	if(clientKeyboard!=master->id){
-		printf("adjusing default client\n");
-		XISetFocus(dpy, clientKeyboard, defaultMasterFocus, 0);
-	}
-
-	msleep(50);
-	//printf("setting focus to %ld\n",nextWindow);
-
-	XISetFocus(dpy, master->id, nextWindow, 0);
-	setBorder(master->index, nextWindow);
-	XFlush(dpy);
-	sync();
-
-	Window focusedWindow;
-	XIGetFocus(dpy, master->id, &focusedWindow);
-	assert(focusedWindow==nextWindow);
-
-
-
-	//printf("grabbing key %d",master->id);
-	//grabKey(master->id, CYCLE_WINDOWS_END_KEYCODE, XIAnyModifier,True);
 
 }
 void endCycleWindows(Master *master){
 	if(!master->windows.cycling)
 		return;
+	XIUngrabDevice(dpy, master->id, 0);
 	printf("release %d %ld; resetting \n",master->id,master->windows.windowOrder[master->windows.offset]);
 
 	addWindow(master,master->windows.windowOrder[master->windows.offset]);
@@ -482,7 +519,8 @@ Bool addWindow(Master *master,Window id){
 
 }
 void dump(Master *master){
+	printf("Dumping; current offset %d\n",master->windows.offset);
 	for(int i=0; i<NUMBER_OF_WINDOWS&&master->windows.windowOrder[i]!=0; i++)
 		printf("%ld ",master->windows.windowOrder[i]);
-	printf("\n");
+	printf("\nEnd dump\n");
 }
